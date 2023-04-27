@@ -3,9 +3,9 @@ name: Test microservice
 on:
   workflow_call:
     secrets:
-    sonar-token:
-      required: true
-      description: Sonarcloud token.
+      sonar-token:
+        required: true
+        description: Sonarcloud token.
 
 jobs:
   microservice-test:
