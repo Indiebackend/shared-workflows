@@ -6,6 +6,9 @@ on:
       sonar-token:
         required: true
         description: Sonarcloud token.
+      github-token:
+        required: true
+        description: Github token
 jobs:
   release:
     name: Release
@@ -42,7 +45,7 @@ jobs:
       - name: Semantic Release
         uses: cycjimmy/semantic-release-action@v3
         env:
-          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.github-token }}
           DOCKER_REGISTRY_USER: nologin
           DOCKER_REGISTRY_PASSWORD: ${{ secrets.SCW_SECRET_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
