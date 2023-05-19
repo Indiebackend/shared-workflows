@@ -65,6 +65,7 @@ jobs:
               id: release
               with:
                   release: true
+                  check-latest-tag-only: true
             - name: Build and push docker image
               run: |
                   docker build -t rg.fr-par.scw.cloud/indiebackend/${{ inputs.project }}:${{ steps.release.outputs.version }} .
