@@ -78,6 +78,9 @@ jobs:
                   curl --data-binary "@${{ inputs.project }}-${{ steps.release.outputs.version }}.tgz" https://cm.dev.indiebackend.com/api/charts
             - name: Push release commit
               run: |
+                  git config --global user.name 'Indiebackend Bot'
+                  git config --global user.email 'bot@indiebackend.com'
+                  git remote set-url origin https://x-access-token:${{ secrets.github-token }}@github.com/${{ github.repository }}
                   git add helm/Chart.yaml && git commit --amend --no-edit
                   git tag -d ${{ steps.release.outputs.version }}
                   git tag ${{ steps.release.outputs.version }} HEAD
@@ -86,6 +89,7 @@ jobs:
             - name: Create github release
               uses: softprops/action-gh-release@v1
               with:
+                  token: ${{ secrets.github-token }}
                   body_path: CHANGELOG.md
                   tag_name: ${{ steps.release.outputs.version }}
             - name: SonarCloud Scan # This step is at the end in order to not block the workflow if it fails
