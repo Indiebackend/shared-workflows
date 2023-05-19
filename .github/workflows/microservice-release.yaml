@@ -24,11 +24,19 @@ on:
             aws-access-key-id:
                 required: true
                 description: AWS access key id
+        inputs:
+            project:
+                type: string
+                required: true
+                description: Project name
+
 jobs:
     release:
         name: Release
         runs-on: ubuntu-20.04
         steps:
+            - name: Login to Docker registry
+              run: echo "${{ secrets.docker-registry-password }}" | docker login rg.fr-par.scw.cloud/indiebackend -u nologin --password-stdin
             - name: Checkout code
               uses: actions/checkout@v3
               with:
@@ -52,31 +60,35 @@ jobs:
               run: yarn ci:test:unit
             - name: Build
               run: yarn build
-            - name: SonarCloud Scan
+            - name: Cocogitto
+              uses: cocogitto/cocogitto-action@v3
+              id: release
+              with:
+                  release: true
+            - name: Build and push docker image
+              run: |
+                  docker build -t rg.fr-par.scw.cloud/indiebackend/${{ inputs.project }}:${{ steps.release.outputs.version }} .
+                  docker push rg.fr-par.scw.cloud/indiebackend/${{ inputs.project }}:${{ steps.release.outputs.version }}
+            - name: Build and push helm chart
+              run: |
+                  yq -i '.version = "${{ steps.release.outputs.version }}"' 'helm/Chart.yaml'
+                  yq -i '.appVersion = "${{ steps.release.outputs.version }}"' 'helm/Chart.yaml'
+                  helm package helm
+                  curl --data-binary "@${{ inputs.project }}-${{ steps.release.outputs.version }}.tgz" https://cm.dev.indiebackend.com/api/charts
+            - name: Push release commit
+              run: |
+                  git add helm/Chart.yaml && git commit --amend --no-edit
+                  git tag -d ${{ steps.release.outputs.version }}
+                  git tag ${{ steps.release.outputs.version }} HEAD
+                  git push
+                  git push origin ${{ steps.release.outputs.version }}
+            - name: Create github release
+              uses: softprops/action-gh-release@v1
+              with:
+                  body_path: CHANGELOG.md
+                  tag_name: ${{ steps.release.outputs.version }}
+            - name: SonarCloud Scan # This step is at the end in order to not block the workflow if it fails
               uses: SonarSource/sonarcloud-github-action@master
               env:
                   GITHUB_TOKEN: ${{ secrets.github-token }}
                   SONAR_TOKEN: ${{ secrets.sonar-token }}
-            - name: Setup node 14 to fix Semantic Release (#79)
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 14
-            - name: Semantic Release
-              uses: cycjimmy/semantic-release-action@v3
-              env:
-                  GITHUB_TOKEN: ${{ secrets.github-token }}
-                  DOCKER_REGISTRY_USER: ${{ secrets.docker-registry-user }}
-                  DOCKER_REGISTRY_PASSWORD: ${{ secrets.docker-registry-password }}
-                  AWS_REGION: ${{ secrets.aws-region }}
-                  AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-secret-access-key }}
-                  AWS_ACCESS_KEY_ID: ${{ secrets.aws-access-key-id }}
-
-              with:
-                  extra_plugins: |
-                      @semantic-release/commit-analyzer
-                      @semantic-release/release-notes-generator
-                      @semantic-release/github
-                      @semantic-release/git
-                      @codedependant/semantic-release-docker
-                      @semantic-release/exec
-                      semantic-release-helm
