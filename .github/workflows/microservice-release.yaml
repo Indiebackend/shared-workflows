@@ -29,6 +29,10 @@ on:
                 type: string
                 required: true
                 description: Project name
+            dry-run:
+                type: boolean
+                required: false
+                description: Dry run
 
 jobs:
     release:
@@ -63,20 +67,24 @@ jobs:
             - name: Cocogitto
               uses: cocogitto/cocogitto-action@v3
               id: release
+              if: ${{ !inputs.dry-run }}
               with:
                   release: true
                   check-latest-tag-only: true
             - name: Build and push docker image
+              if: ${{ !inputs.dry-run }}
               run: |
                   docker build -t rg.fr-par.scw.cloud/indiebackend/${{ inputs.project }}:${{ steps.release.outputs.version }} .
                   docker push rg.fr-par.scw.cloud/indiebackend/${{ inputs.project }}:${{ steps.release.outputs.version }}
             - name: Build and push helm chart
+              if: ${{ !inputs.dry-run }}
               run: |
                   yq -i '.version = "${{ steps.release.outputs.version }}"' 'helm/Chart.yaml'
                   yq -i '.appVersion = "${{ steps.release.outputs.version }}"' 'helm/Chart.yaml'
                   helm package helm
                   curl --data-binary "@${{ inputs.project }}-${{ steps.release.outputs.version }}.tgz" https://cm.dev.indiebackend.com/api/charts
             - name: Push release commit
+              if: ${{ !inputs.dry-run }}
               run: |
                   git config --global user.name 'Indiebackend Bot'
                   git config --global user.email 'bot@indiebackend.com'
@@ -87,6 +95,7 @@ jobs:
                   git push
                   git push origin ${{ steps.release.outputs.version }}
             - name: Create github release
+              if: ${{ !inputs.dry-run }}
               uses: softprops/action-gh-release@v1
               with:
                   token: ${{ secrets.github-token }}
